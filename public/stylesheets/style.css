@@ -1,0 +1,53 @@
+body {
+  font-family: sans-serif;
+  padding-top: 1em;
+  padding-bottom: 1em;
+  font-size: 2em;
+  width: 80%;
+  margin: 0 auto;
+}
+
+input,
+textarea,
+button,
+p,
+div,
+section,
+article,
+select {
+  display: 'block';
+  width: 100%;
+  font-family: sans-serif;
+  font-size: 1em;
+  margin: 0.5em;
+}
+
+h1 {
+  text-align: center
+}
+
+h4 { margin: 0 }
+
+.error {
+  border: 3px solid red;
+  width: fit-content;
+  padding: 1rem;
+  border-radius: 10px;
+  margin: 4rem auto 0 auto;
+}
+
+.preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.selection {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+}
+
+.selection select {
+  width: fit-content;
+  margin-left: 2rem;
+  font-size: 0.75em;
+}

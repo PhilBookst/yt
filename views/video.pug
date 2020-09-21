@@ -1,0 +1,20 @@
+extends index
+
+block video
+  .preview
+    img(src=thumb_url width="100%")
+    //- iframe(src=vidPreview width="560" height="315" frameborder="0")
+    .details
+      h4=title
+      h5=author
+      form(method="POST" action=`/${id}`)
+        .selection
+          button(type='submit' id="download") Download
+          input(type="hidden" name="title" value=title)
+          select(name="quality" id="quality")
+            for quality in qualities
+              option(value=quality name=quality)= quality
+          select(name="format" id="format")
+            for format in formats
+              option(value=format name=format)= format
+          

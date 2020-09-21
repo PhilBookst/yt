@@ -1,0 +1,13 @@
+extends layout
+
+block content
+  h1 uTube Converter
+  
+  form(method="POST")
+    input(type="text" name="url" placeholder="https://youtube.com/watch?v=")
+    button(type="submit") Send
+
+  if error
+    .error=error
+
+  block video
