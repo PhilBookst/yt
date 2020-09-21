@@ -8,10 +8,10 @@ router.get('/', function(req, res, next) {
   return res.render('index');
 });
 
-router.get('/download/:id', videoController.download);
+router.get('/:_id/download', videoController.download);
 
 router.post('/', videoController.videoSubmit);
 
-router.post('/:id', videoController.getSelection);
+router.post('/:_id', videoController.getSelection);
 
 module.exports = router;

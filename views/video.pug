@@ -7,7 +7,7 @@ block video
     .details
       h4=title
       h5=author
-      form(method="POST" action=`/${id}`)
+      form(method="POST" action=`/${_id}`)
         .selection
           button(type='submit' id="download") Download
           input(type="hidden" name="title" value=title)

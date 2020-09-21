@@ -4,98 +4,126 @@ const Video = require('../models/videoSchema');
 
 
 exports.download = (req, res, next) => {
-  let { id } = req.params;
+  let { _id } = req.params;
   let { format, title } = req.query;
 
   title = decodeURIComponent(title);
   format = decodeURIComponent(format);
-  
-  //const ytdlTitle = title.split(' ').join('-');
 
-  res.download(`${id}.${format}`, `${title}.${format}` ,(err) => {
-    if(err) console.log(err);
-    console.log('downloaded');
-  })
+  return res.download(`${_id}.${format}`, `${title}.${format}`);
 }
 
 exports.videoSubmit = async (req, res, next) => {
-  const { url } = req.body;
 
-  if(!ytdl.validateURL(url)) res.render('index', { error: 'Not a valid URL' });
+  try {
+    
+    const { url } = req.body;
   
-  let { videoDetails, formats } = await ytdl.getBasicInfo(url);
-  let { author, title, thumbnail} = videoDetails;
-  let thumb_url = thumbnail.thumbnails.slice(-1)[0].url;
+    if(!ytdl.validateURL(url)) res.render('index', { error: 'Not a valid URL' });
+
+    const _id = await ytdl.getURLVideoID(url);
+
+    // Search DB for Video ID
+    const video = await Video.findOne({ _id }).exec();
+
+    if(video) {
+
+      const { title, author, thumb_url } = video;
+      const qualities = await getQualities(_id);
   
-  const id = await ytdl.getURLVideoID(url);
-  const iframe = `https://www.youtube.com/embed/${id}`;
+      return res.render('video', { 
+        _id, 
+        title, 
+        author, 
+        thumb_url,  
+        qualities, 
+        formats: ['mp3', 'mp4'],
+      });
 
-  const selection = new Map();
+    } else {
 
-  formats.reduceRight((prev, curr) => {
-    if(curr.qualityLabel && curr.mimeType.includes('mp4') && !selection.has(curr.qualityLabel)) selection.set(curr.qualityLabel, curr.itag);
-    return prev;
-  }, []);
+      console.log(_id);
 
-  const qualities = [... selection.keys()];
+      let { videoDetails, formats } = await ytdl.getBasicInfo(url);
+      let { author, title, thumbnail} = videoDetails;
 
-  // Manage file system and path structure 
-  // 1080p+ => seperate stream download and merge 
+      console.log(formats);
 
-  const video = new Video({
-    vidID: id,
-    title,
-    author: author.name,
-    thumb_url,
-    formats: { 
-      possible: selection,
+      let thumb_url = thumbnail.thumbnails.slice(-1)[0].url;
+      const iframe = `https://www.youtube.com/embed/${_id}`;
+
+      const selection = new Map();
+    
+      formats.reduceRight((prev, curr) => {
+        if(curr.qualityLabel && curr.mimeType.includes('mp4') && !selection.has(curr.qualityLabel)) selection.set(curr.qualityLabel, curr.itag);
+        return prev;
+      });
+    
+      const qualities = [... selection.keys()];
+    
+      const video = new Video({
+        _id,
+        title,
+        author: author.name,
+        thumb_url,
+        formats: { 
+          possible: selection,
+        }
+      })
+    
+      video.save((err) => {
+        if(err) console.log(err);
+        console.log('saved');
+      })
+      
+      return res.render('video', { 
+        _id, 
+        title, 
+        thumb_url,  
+        qualities, 
+        vidPreview: iframe, 
+        author: author.name, 
+        formats: ['mp3', 'mp4'],
+      });
     }
-  })
 
-  video.save((err) => {
-    if(err) console.log(err);
-    console.log('saved');
-  })
+  } catch (error) {
+    console.log(error);
+  }
 
-
-  return res.render('video', { 
-    id, 
-    title, 
-    thumb_url,  
-    qualities, 
-    vidPreview: iframe, 
-    author: author.name, 
-    formats: ['mp3', 'mp4'],
-  });
 }
 
 exports.getSelection = async (req, res, next) => {
   const url = 'https://www.youtube.com/watch?v='
-  const { id } = req.params;
+  const { _id } = req.params;
   let { title, quality, format } = req.body;
   
   try {
 
-    const video = await Video.findOne({ vidID: id }).populate('saved').exec();
-    
+    const itag = await getItag(quality, _id);
 
-    
-    const file = await ytdl(url+id).pipe(fs.createWriteStream(`${id}.${format}`));
-  
-    file.on('finish', () => {
+    const video =  await Video.findOne({ _id }).exec();
+
+    const data = await ytdl(url+_id).pipe(fs.createWriteStream(`${_id}.${format}`));
+
+    data.on('finish', () => {
       title = encodeURIComponent(title);
       format = encodeURIComponent(format);
-    
-      return res.redirect(`/download/${id}?title=${title}&format=${format}`);
-    });
-  
-    file.on('error', (err) => {
-      console.log(err);
-      res.send('Error')
+      return res.redirect(`/${_id}/download?title=${title}&format=${format}`);  
     })
     
   } catch (error) {
     console.log(error);
     res.send('Error')
   }
+}
+
+async function getItag(quality, _id) {
+  const video = await Video.findOne({ _id }).exec();
+  return video.formats.possible.get(quality);
+}
+
+async function getQualities(_id) {
+  const video = await Video.findOne({ _id }).exec();
+  return [... video.formats.possible.keys()];
 }
