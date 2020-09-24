@@ -3,16 +3,6 @@ const fs = require('fs');
 const Video = require('../models/videoSchema');
 
 
-exports.download = (req, res, next) => {
-  let { _id } = req.params;
-  let { format, title } = req.query;
-
-  title = decodeURIComponent(title);
-  format = decodeURIComponent(format);
-
-  return res.download(`${_id}.${format}`, `${title}.${format}`);
-}
-
 exports.videoSubmit = async (req, res, next) => {
 
   try {
@@ -42,12 +32,8 @@ exports.videoSubmit = async (req, res, next) => {
 
     } else {
 
-      console.log(_id);
-
       let { videoDetails, formats } = await ytdl.getBasicInfo(url);
       let { author, title, thumbnail} = videoDetails;
-
-      console.log(formats);
 
       let thumb_url = thumbnail.thumbnails.slice(-1)[0].url;
       const iframe = `https://www.youtube.com/embed/${_id}`;
@@ -75,8 +61,8 @@ exports.videoSubmit = async (req, res, next) => {
         if(err) console.log(err);
         console.log('saved');
       })
-      
-      return res.render('video', { 
+
+      return res.render('video', {
         _id, 
         title, 
         thumb_url,  
@@ -84,7 +70,7 @@ exports.videoSubmit = async (req, res, next) => {
         vidPreview: iframe, 
         author: author.name, 
         formats: ['mp3', 'mp4'],
-      });
+      })
     }
 
   } catch (error) {
@@ -97,21 +83,18 @@ exports.getSelection = async (req, res, next) => {
   const url = 'https://www.youtube.com/watch?v='
   const { _id } = req.params;
   let { title, quality, format } = req.body;
+
+  console.log(_id);
   
   try {
 
     const itag = await getItag(quality, _id);
 
     const video =  await Video.findOne({ _id }).exec();
-
-    const data = await ytdl(url+_id).pipe(fs.createWriteStream(`${_id}.${format}`));
-
-    data.on('finish', () => {
-      title = encodeURIComponent(title);
-      format = encodeURIComponent(format);
-      return res.redirect(`/${_id}/download?title=${title}&format=${format}`);  
-    })
     
+    res.set('Content-disposition', 'attachment; filename=' + `${title}.${format}`);
+    await ytdl(url+_id).pipe(res);
+
   } catch (error) {
     console.log(error);
     res.send('Error')
