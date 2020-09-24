@@ -21,7 +21,7 @@ exports.videoSubmit = async (req, res, next) => {
       const { title, author, thumb_url } = video;
       const qualities = await getQualities(_id);
   
-      return res.render('video', { 
+      return res.json({ 
         _id, 
         title, 
         author, 
@@ -62,7 +62,7 @@ exports.videoSubmit = async (req, res, next) => {
         console.log('saved');
       })
 
-      return res.render('video', {
+      return res.json({
         _id, 
         title, 
         thumb_url,  
