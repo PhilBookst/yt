@@ -1,0 +1,6 @@
+POST http://localhost:4554/api/
+content-type: application/json 
+
+{
+  "url": "https://www.youtube.com/watch?v=BZYTlfPTJYU",
+}

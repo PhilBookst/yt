@@ -1,112 +1,65 @@
 const ytdl = require('ytdl-core');
 const fs = require('fs');
-const Video = require('../models/videoSchema');
-
+const merge = require('merge2');
+const ffmpeg = require('ffmpeg-static');
+const cp = require('child_process');
 
 exports.videoSubmit = async (req, res, next) => {
 
   try {
     
-    const { url } = req.body;
+    const { url, quality } = req.body;
   
-    if(!ytdl.validateURL(url)) res.render('index', { error: 'Not a valid URL' });
+    if(!ytdl.validateURL(url)) res.render('index', { error: 'Not a valid URL !' });
 
-    const _id = await ytdl.getURLVideoID(url);
+    //const _id = await ytdl.getURLVideoID(url);
+    let { videoDetails } = await ytdl.getInfo(url);
 
-    // Search DB for Video ID
-    const video = await Video.findOne({ _id }).exec();
+    let { title } = videoDetails;
 
-    if(video) {
+    if(quality == 'mp4hd') {
 
-      const { title, author, thumb_url } = video;
-      const qualities = await getQualities(_id);
-  
-      return res.json({ 
-        _id, 
-        title, 
-        author, 
-        thumb_url,  
-        qualities, 
-        formats: ['mp3', 'mp4'],
-      });
+      const video = await ytdl(url, { filter: format => format.container === 'webm' })
+      const audio = await ytdl(url, { filter: format => format.container === 'mp3' })
 
-    } else {
-
-      let { videoDetails, formats } = await ytdl.getBasicInfo(url);
-      let { author, title, thumbnail} = videoDetails;
-
-      let thumb_url = thumbnail.thumbnails.slice(-1)[0].url;
-      const iframe = `https://www.youtube.com/embed/${_id}`;
-
-      const selection = new Map();
-    
-      formats.reduceRight((prev, curr) => {
-        if(curr.qualityLabel && curr.mimeType.includes('mp4') && !selection.has(curr.qualityLabel)) selection.set(curr.qualityLabel, curr.itag);
-        return prev;
-      });
-    
-      const qualities = [... selection.keys()];
-    
-      const video = new Video({
-        _id,
-        title,
-        author: author.name,
-        thumb_url,
-        formats: { 
-          possible: selection,
-        }
+      
+      res.setHeader('Content-disposition', `attachment; filename=${title}.webm`);
+      res.setHeader('Content-type', 'video/webm');
+      
+      video.on('error', (err) => console.log(err));
+      
+      video
+      .on('end', () => {
+        console.log('end');
       })
-    
-      video.save((err) => {
-        if(err) console.log(err);
-        console.log('saved');
-      })
-
-      return res.json({
-        _id, 
-        title, 
-        thumb_url,  
-        qualities, 
-        vidPreview: iframe, 
-        author: author.name, 
-        formats: ['mp3', 'mp4'],
-      })
+      
+      
+      .pipe(res);
+      
+    } 
+    else if(quality == 'mp4') {
+      res.header('Content-disposition', 'attachment; filename=' + `${title}.mp4`);
+      await ytdl(url).pipe(res);
+    } 
+    else {
+      res.header('Content-disposition', 'attachment; filename=' + `${title}.mp3`);
+      await ytdl(url, { quality: 'highestaudio' }).pipe(res);
     }
 
   } catch (error) {
     console.log(error);
+    res.render('index', { error: 'Error. Please try again!' });
   }
 
 }
 
-exports.getSelection = async (req, res, next) => {
-  const url = 'https://www.youtube.com/watch?v='
-  const { _id } = req.params;
-  let { title, quality, format } = req.body;
+async function MergeStreams(url) {
+  const audio = await ytdl(url, { filter: 'audioonly', quality: 'highestaudio' });
+  const video = await ytdl(url, { filter: 'videoonly', quality: 'highestvideo' });
 
-  console.log(_id);
-  
-  try {
+  console.log(audio);
+  console.log(video);
 
-    const itag = await getItag(quality, _id);
-
-    const video =  await Video.findOne({ _id }).exec();
-    
-    res.set('Content-disposition', 'attachment; filename=' + `${title}.${format}`);
-    await ytdl(url+_id).pipe(res);
-
-  } catch (error) {
-    console.log(error);
-    res.send('Error')
-  }
-}
-
-async function getItag(quality, _id) {
-  const video = await Video.findOne({ _id }).exec();
-  return video.formats.possible.get(quality);
-}
-
-async function getQualities(_id) {
-  const video = await Video.findOne({ _id }).exec();
-  return [... video.formats.possible.keys()];
+  const stream = merge(video, audio);
+  return stream;
 }

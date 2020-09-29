@@ -31,7 +31,7 @@ app.use(bodyParser.json())
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 
-app.use('/api', indexRouter);
+app.use('/', indexRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
